@@ -987,6 +987,21 @@ class Archiver:
         def print_output(diff, path):
             print("{:<19} {}".format(diff, path))
 
+        def print_output_json(diffs):
+            import json
+            out = dict(added=[], modified=[], deleted=[])
+
+            for path, diff in diffs:
+                line = dict(path=path, diff=diff)
+                if 'added' in diff:
+                    out['added'].append(line)
+                elif 'deleted' in diff:
+                    out['deleted'].append(line)
+                else:
+                    out['modified'].append(line)
+
+            print(json.dumps(out, sort_keys=True, indent=4))
+
         archive1 = archive
         archive2 = Archive(repository, key, manifest, args.archive2,
                            consider_part_files=args.consider_part_files)
@@ -1007,8 +1022,11 @@ class Archiver:
         if args.sort:
             diffs = sorted(diffs)
 
-        for path, diff in diffs:
-            print_output(diff, path)
+        if args.json_output:
+            print_output_json(diffs)
+        else:
+            for path, diff in diffs:
+                print_output(diff, path)
 
         for pattern in matcher.get_unmatched_include_patterns():
             self.print_warning("Include pattern '%s' never matched.", pattern)
@@ -3304,6 +3322,8 @@ class Archiver:
                                help='ARCHIVE2 name (no repository location allowed)')
         subparser.add_argument('paths', metavar='PATH', nargs='*', type=str,
                                help='paths of items inside the archives to compare; patterns are supported')
+        subparser.add_argument('--json-output', dest='json_output', action='store_true',
+                               help='Convert output to JSON')
         define_exclusion_group(subparser)
 
         rename_epilog = process_epilog("""

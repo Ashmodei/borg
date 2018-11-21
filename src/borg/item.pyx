@@ -390,12 +390,13 @@ class ItemDiff:
     It does not include extended or time attributes in the comparison.
     """
 
-    def __init__(self, item1, item2, chunk_iterator1, chunk_iterator2, numeric_owner=False, can_compare_chunk_ids=False):
+    def __init__(self, item1, item2, chunk_iterator1, chunk_iterator2, numeric_owner=False, can_compare_chunk_ids=False, in_bytes=False):
         self._item1 = item1
         self._item2 = item2
         self._numeric_owner = numeric_owner
         self._can_compare_chunk_ids = can_compare_chunk_ids
         self.equal = self._equal(chunk_iterator1, chunk_iterator2)
+        self._in_bytes = in_bytes
 
     def __repr__(self):
         if self.equal:
@@ -417,7 +418,7 @@ class ItemDiff:
             changes.append(self._mode_string())
 
         return ' '.join((x for x in changes if x))
-
+    
     def _equal(self, chunk_iterator1, chunk_iterator2):
         # if both are deleted, there is nothing at path regardless of what was deleted
         if self._item1.get('deleted') and self._item2.get('deleted'):
@@ -449,9 +450,11 @@ class ItemDiff:
 
     def _content_string(self):
         if self._item1.get('deleted'):
-            return ('added {:>13}'.format(format_file_size(self._item2.get_size())))
+            added = self._item2.get_size()
+            return ('added {:>13}'.format(added if self._in_bytes else format_file_size(added)))
         if self._item2.get('deleted'):
-            return ('removed {:>11}'.format(format_file_size(self._item1.get_size())))
+            removed = self._item1.get_size()
+            return ('removed {:>11}'.format(removed if self._in_bytes else format_file_size(removed)))
         if not self._can_compare_chunk_ids:
             return 'modified'
         chunk_ids1 = {c.id for c in self._item1.chunks}
@@ -459,9 +462,9 @@ class ItemDiff:
         added_ids = chunk_ids2 - chunk_ids1
         removed_ids = chunk_ids1 - chunk_ids2
         added = self._item2.get_size(consider_ids=added_ids)
-        removed = self._item1.get_size(consider_ids=removed_ids)
-        return ('{:>9} {:>9}'.format(format_file_size(added, precision=1, sign=True),
-                                     format_file_size(-removed, precision=1, sign=True)))
+        removed = -self._item1.get_size(consider_ids=removed_ids)
+        return ('{:>9} {:>9}'.format(added if self._in_bytes else format_file_size(added, precision=1, sign=True),
+                                     removed if self._in_bytes else format_file_size(removed, precision=1, sign=True)))
 
     def _dir_string(self):
         if self._item2.get('deleted') and not self._item1.get('deleted'):
